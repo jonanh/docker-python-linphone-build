@@ -1,0 +1,77 @@
+FROM arm32v7/ubuntu:bionic
+
+RUN echo "deb-src http://archive.ubuntu.com/ubuntu/ bionic main restricted universe multiverse" > /etc/apt/sources.list.d/ubuntu.sources.list \
+ && apt-get update \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
+      build-essential \
+      curl \
+      devscripts \
+      equivs \
+      git-buildpackage \
+      git \
+      lsb-release \
+      make \
+      pristine-tar \
+      wget \
+      cmake \
+      autoconf \
+      pkg-config \
+      python-dev \
+      python-pip \
+      python-pystache \
+      python-six \
+      python-sphinx \
+      yasm \
+      nasm \
+      gcc-6 \
+      g++-6 \
+      libsoci-dev
+
+RUN apt-get build-dep -y linphone
+
+RUN apt-get install -y \
+      libxml2-dev \
+      libxslt1-dev \
+      python-libxslt1 \
+      python-lxml \
+      graphviz \
+ && pip install \
+      setuptools \
+      wheel \
+      sphinx \
+ && pip install \
+      javasphinx \
+      sphinx_csharp \
+ && update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-6 10 \
+ && update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-6 10
+
+RUN mkdir /opt/linphone \
+ && cd /opt/linphone \
+ && git clone https://gitlab.linphone.org/BC/public/linphone-desktop.git \
+
+ # Checkout when the python wrapper was still working
+ && cd linphone-desktop \
+ && git checkout 640e937ff1b3fa2283e672975dddbd47ae46e39d \
+ && (git submodule update --init --recursive || true) \
+
+ # Fix the libxsd pointing to a non existing commit :-(
+ && cd /opt/linphone/linphone-desktop/submodules/externals/libxsd \
+ && git checkout master \
+ && cd /opt/linphone/linphone-desktop/ \
+ && git config --global user.email "you@example.com" \
+ && git config --global user.name "Your Name" \
+ && git commit submodules/externals/libxsd -m "Update the broken submodule" \
+
+ # try finishing the submodule init
+ && git submodule update --init --recursive \
+
+ # Compile the project
+ && cd /opt/linphone/linphone-desktop \
+ && python prepare.py -c \
+ && python prepare.py python \
+      -DENABLE_CSHARP_WRAPPER=YES \
+#      -DENABLE_NON_FREE_CODECS=ON \
+#      -DENABLE_FFMPEG=ON \
+#      -DENABLE_OPENH264=ON \
+ && make
+
